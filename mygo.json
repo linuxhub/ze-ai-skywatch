@@ -1,0 +1,16 @@
+{
+  "name": "ZeAISkyWatch",
+  "identifier": "dev.zepinglai.macmonitor",
+  "version": "0.4.4",
+  "out": "build",
+  "macos": {
+    "minimumSystemVersion": "13.0",
+    "dmgTitle": "泽 · 观天镜",
+    "infoPlist": {
+      "CFBundleName": "泽 · 观天镜",
+      "CFBundleDisplayName": "泽 · 观天镜",
+      "LSApplicationCategoryType": "public.app-category.utilities"
+    }
+  },
+  "icon": "resources/icon.png"
+}

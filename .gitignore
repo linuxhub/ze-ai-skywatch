@@ -1,0 +1,6 @@
+/build/
+/.mygo/
+mygo_windows_*.syso
+/.tools/
+/coverage.out
+.DS_Store
