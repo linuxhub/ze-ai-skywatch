@@ -25,6 +25,7 @@ var (
 	portsIcon    = icon(`<circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="m8 8 8 8M6 9v5a4 4 0 0 0 4 4h5M18 15v-5a4 4 0 0 0-4-4H9"/>`)
 	networkIcon  = icon(`<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a16 16 0 0 1 0 18 16 16 0 0 1 0-18"/>`)
 	settingsIcon = icon(`<path d="m9 3 1-1h4l1 3 3 1 3 2-1 3v2l1 3-3 2-3 1-1 3h-4l-1-3-3-1-3-2 1-3v-2L3 8l3-2 3-1z"/><circle cx="12" cy="12" r="3"/>`)
+	infoIcon     = icon(`<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/>`)
 	refreshIcon  = icon(`<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>`)
 	arrowIcon    = icon(`<path d="m9 5 7 7-7 7"/>`)
 	memoryIcon   = icon(`<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4m5-4v4m5-4v4M7 18v3m5-3v3m5-3v3"/>`)
@@ -84,9 +85,12 @@ func (a *app) view(c *ui.Context) {
 		ui.Row(c).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			a.sidebar(c)
 			ui.Column(c).Grow(1).MinWidth(0).Padding(24).Gap(20).Children(func() {
-				if a.page == "settings" {
+				switch a.page {
+				case "settings":
 					a.settingsView(c)
-				} else {
+				case "about":
+					a.aboutPage(c)
+				default:
 					a.pageHeader(c)
 					switch a.page {
 					case "processes":
@@ -178,7 +182,7 @@ func (a *app) sidebar(c *ui.Context) {
 		for _, nav := range []struct {
 			id, label string
 			svg       *ui.SVG
-		}{{"overview", "系统概览", pulseIcon}, {"processes", "CPU 进程", cpuIcon}, {"network", "网络流量", networkIcon}, {"connections", "网络连接", portsIcon}, {"ports", "开放端口", portsIcon}, {"settings", "设置", settingsIcon}} {
+		}{{"overview", "系统概览", pulseIcon}, {"processes", "CPU 进程", cpuIcon}, {"network", "网络流量", networkIcon}, {"connections", "网络连接", portsIcon}, {"ports", "开放端口", portsIcon}, {"settings", "设置", settingsIcon}, {"about", "关于", infoIcon}} {
 			active := a.page == nav.id
 			b := ui.ButtonBase(c.Key(nav.id)).FillWidth().Height(42).Padding(0, 12).Radius(8).Label(nav.label).Gap(11)
 			color := t.Text
@@ -758,16 +762,6 @@ func (a *app) settingsView(c *ui.Context) {
 			for _, text := range []string{"进程 CPU：100% 对应一个逻辑核心，多核进程可以超过 100%。", platformText("进程内存：驻留集 RSS，与活动监视器的内存占用口径可能不同。", "进程内存：工作集，与任务管理器的专用工作集口径可能不同。"), "TCP 端口：只列当前权限下可见的监听 socket；相同端点的重复文件描述符合并。", "端口计数：按 PID、协议、地址族、地址、端口组合计数。", "监控在本机完成；点击 AI 分析时，将所选进程的摘要发送至你配置的模型服务。"} {
 				ui.Text(c, text).FontSize(12).TextColor(c.Theme().TextMuted)
 			}
-		})
-		a.settingsCard(c, "关于", func() {
-			ui.Row(c).Gap(14).Children(func() {
-				ui.Image(c, appIcon).Size(52, 52).Fit(ui.Contain)
-				ui.Column(c).Gap(4).Children(func() {
-					ui.Text(c, appName).Bold().FontSize(16)
-					ui.Text(c, appEnglishName+" · "+appTagline).FontSize(12).TextColor(c.Theme().TextMuted)
-					ui.Text(c, "版本 "+appVersion+" · MyGO 原生界面").FontSize(12).TextColor(c.Theme().TextMuted)
-				})
-			})
 		})
 	})
 }

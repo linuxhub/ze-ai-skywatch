@@ -24,7 +24,9 @@ import (
 const appName = "泽 · 观天镜"
 const appEnglishName = "Ze AI SkyWatch"
 const appTagline = "用 AI 看懂进程与网络"
-const appVersion = "0.4.4"
+const appAuthor = "泽泽"
+const appRepositoryURL = "https://github.com/linuxhub/ze-ai-skywatch"
+const appVersion = "0.4.5"
 
 //go:embed resources/icon.png
 var appIconPNG []byte

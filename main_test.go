@@ -73,6 +73,40 @@ func TestNavigationAndSearch(t *testing.T) {
 	if a.config.AutoRefresh {
 		t.Fatal("auto refresh did not pause")
 	}
+	if err := tt.Click("关于"); err != nil {
+		t.Fatal(err)
+	}
+	if a.page != "about" || !tt.HasText(appAuthor) || !tt.HasText(appRepositoryURL) {
+		t.Fatal("about page missing author or repository")
+	}
+	if len(tt.OpenedURLs()) != 0 {
+		t.Fatal("about page opened a URL without a click")
+	}
+	if err := tt.Click(appRepositoryURL); err != nil {
+		t.Fatal(err)
+	}
+	if urls := tt.OpenedURLs(); len(urls) != 1 || urls[0] != appRepositoryURL {
+		t.Fatalf("repository link opened wrong URL: %v", urls)
+	}
+	if err := tt.Click("复制仓库地址"); err != nil {
+		t.Fatal(err)
+	}
+	if tt.Clipboard() != appRepositoryURL {
+		t.Fatal("repository address was not copied")
+	}
+	if err := tt.Click("设置"); err != nil {
+		t.Fatal(err)
+	}
+	if !tt.HasText("刷新设置") || tt.HasText(appRepositoryURL) {
+		t.Fatal("about content leaked into settings")
+	}
+	if err := tt.Click("关于"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if len(tt.OpenedURLs()) != 1 || tt.FramePending() {
+		t.Fatal("returning to about did not settle or reopened the repository")
+	}
 }
 
 func TestRenderLayouts(t *testing.T) {
@@ -83,7 +117,7 @@ func TestRenderLayouts(t *testing.T) {
 			tt := ui.NewTester(a.view, width, 850)
 			tt.SetLocale("zh-Hans")
 			tt.SetDark(dark)
-			for _, page := range []string{"overview", "processes", "ports", "settings"} {
+			for _, page := range []string{"overview", "processes", "ports", "settings", "about"} {
 				a.page = page
 				tt.Frame()
 				if tt.FramePending() {

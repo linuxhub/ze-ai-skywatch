@@ -6,9 +6,18 @@
 
 使用 **MyGO 0.5.5 原生 Go UI** 构建的 macOS / Windows 进程与端口监控工具。无需 WebView、Bun 或前端构建。
 
+## 下载
+
+在 [GitHub Releases](https://github.com/linuxhub/ze-ai-skywatch/releases/latest) 下载已打包的版本：
+
+- [macOS Apple Silicon（M 系列芯片）安装包](https://github.com/linuxhub/ze-ai-skywatch/releases/download/v0.4.5/ZeAISkyWatch-0.4.5-macOS-arm64.dmg)
+- [Windows x64 便携版](https://github.com/linuxhub/ze-ai-skywatch/releases/download/v0.4.5/ZeAISkyWatch-0.4.5-Windows-x64.zip)
+
+选择 Releases 中的 DMG 或 ZIP 附件；GitHub 自动生成的 Source code 压缩包是源码。Windows 包完整解压后运行 `ZeAISkyWatch.exe`。
+
 ## 运行
 
-当前版本 **0.4.4**（网络连接采用柔和选中底色，优化明暗主题下状态和速率文字的可读性）。安装包：`build/darwin-arm64/ZeAISkyWatch 0.4.4 arm64.dmg`，打开后将应用拖入“应用程序”即可安装或替换旧版。
+当前版本 **0.4.5**（新增独立「关于」页面，展示作者与可访问、可复制的 GitHub 仓库地址）。安装包：`build/darwin-arm64/ZeAISkyWatch 0.4.5 arm64.dmg`，打开后将应用拖入“应用程序”即可安装或替换旧版。
 
 已打包的本机版本：`build/darwin-arm64/ZeAISkyWatch.app`，双击即可打开。
 
@@ -20,7 +29,7 @@ open "build/darwin-arm64/ZeAISkyWatch.app"
 
 ## Windows 便携版
 
-Windows x64 包：`build/ZeAISkyWatch 0.4.4 Windows x64.zip`。适用于 Windows 10 / 11 的 Intel / AMD 64 位电脑，完整解压后双击 `ZeAISkyWatch.exe`；无需安装 Go 或 WebView2。
+Windows x64 包：`build/ZeAISkyWatch 0.4.5 Windows x64.zip`。适用于 Windows 10 / 11 的 Intel / AMD 64 位电脑，完整解压后双击 `ZeAISkyWatch.exe`；无需安装 Go 或 WebView2。
 
 Windows 版已适配进程 CPU / 内存、进程详情、TCP 监听端口、TCP / UDP 连接快照、物理网卡整机网速、本地 IP 标注和 AI 分析。Windows 通过 IP Helper API 读取连接表，UDP 只能展示本地绑定。结束进程只支持强制结束，使用同一个 Windows 进程句柄核对启动时间、所属用户并执行，避免 PID 复用误操作。
 
@@ -52,6 +61,7 @@ Windows 本机安装 Go 后，可执行 `go tool mygo build -platform windows/am
 
 ## 已实现
 
+- 独立「关于」页面：产品名称、版本、作者「泽泽」，支持打开和复制 GitHub 仓库地址。
 - 系统概览：整机 CPU 使用率、进程数量、内存使用率、TCP 监听端点数量。
 - CPU Top 10 与完整进程列表，支持进程名称／PID 搜索和列排序。
 - CPU 差分采样，进程身份使用 PID + 启动时间；首次采样显示 `—`。
@@ -142,6 +152,7 @@ API 密钥随设置保存在本机 `settings.json`，文件权限为 `0600`，�
 ```text
 main.go                         应用生命周期、采样调度、菜单栏
 views.go                        概览、进程、端口、设置、详情弹窗
+about_views.go                  独立关于页、作者与 GitHub 仓库入口
 internal/monitor/               CPU 差分、进程身份、macOS 原生资源读取
 internal/ports/                 lsof 采集和字段解析
 internal/connections/           独立 TCP／UDP socket 快照与状态解析
