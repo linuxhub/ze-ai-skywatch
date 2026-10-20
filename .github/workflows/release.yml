@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        default: v0.4.5
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      GOCACHE: ${{ runner.temp }}/go-build
+      GOMODCACHE: ${{ runner.temp }}/go-mod
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Verify tag matches application version
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          version = json.loads(Path('mygo.json').read_text())['version']
+          assert os.environ['RELEASE_TAG'] == f'v{version}', 'Tag and app version differ'
+          PY
+      - name: Verify source
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          ./scripts/go.sh test ./...
+          ./scripts/go.sh vet ./...
+          ./scripts/go.sh tool mygo vet .
+      # MyGo creates a temporary Windows resource file in the source tree;
+      # keep builds sequential so it cannot race with Go tests or vet.
+      - name: Build macOS Apple Silicon and Windows x64
+        run: |
+          ./scripts/build.sh -platform darwin/arm64
+          ./scripts/build-windows.sh
+      - name: Prepare release attachments and notes
+        env:
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, shutil, zipfile
+          version = json.loads(Path('mygo.json').read_text())['version']
+          tag = os.environ['RELEASE_TAG']
+          repo = os.environ['RELEASE_REPOSITORY']
+          dest = Path('release-assets')
+          dest.mkdir()
+          mac = f'ZeAISkyWatch-{version}-macOS-arm64.dmg'
+          windows = f'ZeAISkyWatch-{version}-Windows-x64.zip'
+          shutil.copy2(f'build/darwin-arm64/ZeAISkyWatch {version} arm64.dmg', dest / mac)
+          shutil.copy2(f'build/ZeAISkyWatch {version} Windows x64.zip', dest / windows)
+          with zipfile.ZipFile(dest / windows) as package:
+              assert package.testzip() is None
+              assert 'ZeAISkyWatch/ZeAISkyWatch.exe' in package.namelist()
+          checksums = [f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}' for path in sorted(dest.iterdir())]
+          (dest / 'SHA256SUMS.txt').write_text('\n'.join(checksums) + '\n')
+          base = f'https://github.com/{repo}/releases/download/{tag}'
+          Path('release-notes.md').write_text(f'''**用 AI 看懂进程与网络。**
+
+          泽 · 观天镜（Ze AI SkyWatch），作者：泽泽。
+
+          ## 功能
+
+          - CPU、内存、进程详情、TCP 监听端口与网络连接监控。
+          - 可配置 OpenAI 兼容或 Anthropic 模型服务，分析所选进程与端口。
+          - 本地 IP 标注；macOS 支持按需流量排行与连接地图。
+          - 独立「关于」页面，展示产品、版本、作者与可打开、可复制的代码仓库地址。
+
+          ## 下载与安装
+
+          - [macOS Apple Silicon / M 系列芯片安装包]({base}/{mac})：macOS 13+，打开 DMG 后拖入「应用程序」。
+          - [Windows x64 便携版]({base}/{windows})：Windows 10 / 11，完整解压后运行 ZeAISkyWatch.exe。
+          - SHA256SUMS.txt 提供安装包的 SHA-256 校验值。Source code 附件为源码。
+
+          ## 平台说明
+
+          - macOS 附件仅适用于 Apple Silicon。使用 ad hoc 签名，尚未进行 Developer ID 签名与公证；其他 Mac 上可能被 Gatekeeper 拦截。
+          - Windows 附件未签名，已交叉编译并校验 ZIP 完整性，尚未进行 Windows 实机验证。
+          - Windows 暂不支持逐进程／逐连接流量速率、流量排行和连接地图；UDP 仅显示本地绑定。
+          - 已通过 Go 测试、静态检查和 MyGo 检查。
+          ''')
+          PY
+      - name: Publish release with both platforms
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > existing-release.txt; then
+            test "$(cat existing-release.txt)" = true || { echo 'Release is already published; refusing to replace assets.'; exit 1; }
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/* --verify-tag --draft \
+              --title "泽 · 观天镜 $RELEASE_TAG · Ze AI SkyWatch" --notes-file release-notes.md
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --latest \
+            --title "泽 · 观天镜 $RELEASE_TAG · Ze AI SkyWatch" --notes-file release-notes.md
