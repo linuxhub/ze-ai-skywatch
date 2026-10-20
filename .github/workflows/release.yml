@@ -26,14 +26,16 @@ jobs:
       contents: write
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-      GOCACHE: ${{ runner.temp }}/go-build
-      GOMODCACHE: ${{ runner.temp }}/go-mod
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Configure Go cache directories
+        run: |
+          echo "GOCACHE=$RUNNER_TEMP/go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod" >> "$GITHUB_ENV"
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
