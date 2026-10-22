@@ -1,7 +1,7 @@
 {
   "name": "ZeAISkyWatch",
   "identifier": "dev.zepinglai.macmonitor",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "out": "build",
   "macos": {
     "minimumSystemVersion": "13.0",

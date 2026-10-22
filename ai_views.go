@@ -63,7 +63,7 @@ func (a *app) aiSettingsView(c *ui.Context) {
 				ui.Button(c, "删除").TextColor(c.Theme().Danger).OnClick(func() { a.removeProvider(p.ID) })
 			})
 		}
-		ui.Text(c, "仅在主动点击 AI 分析时发送进程摘要。不会发送命令行、环境变量或文件内容。").FontSize(11).TextColor(c.Theme().TextMuted)
+		ui.Text(c, "仅在主动点击 AI 分析时发送选定的进程或连接摘要。连接分析还可附带应用和签名证据，并预览发送内容；不会发送命令行、环境变量或文件内容。").FontSize(11).TextColor(c.Theme().TextMuted)
 	})
 }
 

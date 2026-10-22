@@ -72,6 +72,7 @@ func (a *app) palette(c *ui.Context) (surface, background ui.Color) {
 
 func (a *app) view(c *ui.Context) {
 	a.syncConnections()
+	a.syncNetconfig()
 	t := *c.Theme()
 	t.Accent = blue
 	t.Radius = 7
@@ -101,6 +102,8 @@ func (a *app) view(c *ui.Context) {
 						a.networkPage(c)
 					case "connections":
 						a.connectionsPage(c)
+					case "netconfig":
+						a.netconfigPage(c)
 					default:
 						a.overview(c)
 					}
@@ -182,7 +185,7 @@ func (a *app) sidebar(c *ui.Context) {
 		for _, nav := range []struct {
 			id, label string
 			svg       *ui.SVG
-		}{{"overview", "系统概览", pulseIcon}, {"processes", "CPU 进程", cpuIcon}, {"network", "网络流量", networkIcon}, {"connections", "网络连接", portsIcon}, {"ports", "开放端口", portsIcon}, {"settings", "设置", settingsIcon}, {"about", "关于", infoIcon}} {
+		}{{"overview", "系统概览", pulseIcon}, {"processes", "CPU 进程", cpuIcon}, {"netconfig", "网络配置", networkIcon}, {"network", "网络流量", networkIcon}, {"connections", "网络连接", portsIcon}, {"ports", "开放端口", portsIcon}, {"settings", "设置", settingsIcon}, {"about", "关于", infoIcon}} {
 			active := a.page == nav.id
 			b := ui.ButtonBase(c.Key(nav.id)).FillWidth().Height(42).Padding(0, 12).Radius(8).Label(nav.label).Gap(11)
 			color := t.Text
@@ -236,6 +239,9 @@ func (a *app) pageHeader(c *ui.Context) {
 		title = "网络连接"
 		subtitle = "查看 TCP / UDP 两端地址、连接状态和你的 IP 业务标注。"
 	}
+	if a.page == "netconfig" {
+		title, subtitle = "网络配置", "查看网卡、地址与代理，了解 VPN 如何改变目标流量的出口。"
+	}
 	ui.Row(c).Shrink(0).Gap(12).Children(func() {
 		ui.Column(c).Grow(1).Gap(6).Children(func() {
 			ui.Text(c, title).FontSize(25).Bold()
@@ -259,6 +265,9 @@ func (a *app) pageHeader(c *ui.Context) {
 			if a.connections.paused {
 				label, color = "连接刷新已暂停", c.Theme().TextMuted
 			}
+		}
+		if a.page == "netconfig" {
+			label, color = "每 15 秒刷新配置", green
 		}
 		ui.Row(c).Gap(6).Padding(6, 10).Radius(999).Background(color.Alpha(0.09)).Children(func() {
 			ui.Box(c).Size(5, 5).Radius(3).Background(color)

@@ -38,6 +38,8 @@ type connectionsProjection struct {
 	Query, Protocol, Mode, Scope, State, Annotation, Column string
 	Descending                                              bool
 	Notes                                                   uint64
+	RoutesAt                                                time.Time
+	RoutesErr                                               string
 }
 
 func (a *app) initConnections() {
@@ -169,6 +171,9 @@ func (a *app) refreshConnections() {
 	if a.page != "connections" {
 		return
 	}
+	if a.netconfig.refresh != nil {
+		send(a.netconfig.refresh)
+	}
 	if a.connections.running && a.connections.automatic {
 		send(a.connections.refresh)
 	} else {
@@ -178,7 +183,7 @@ func (a *app) refreshConnections() {
 
 func (a *app) filteredConnections() []connections.Connection {
 	n := &a.connections
-	key := connectionsProjection{n.snapshot.At, n.query, n.protocol, n.mode, n.scope, n.state, n.annotation, n.order.Column, n.order.Descending, a.ipNotes.revision}
+	key := connectionsProjection{n.snapshot.At, n.query, n.protocol, n.mode, n.scope, n.state, n.annotation, n.order.Column, n.order.Descending, a.ipNotes.revision, a.netconfig.snapshot.Routing.At, a.netconfig.snapshot.Routing.Err}
 	if n.rows != nil && key == n.projection {
 		return n.rows
 	}
@@ -214,6 +219,9 @@ func (a *app) filteredConnections() []connections.Connection {
 			continue
 		}
 		haystack := row.Process + " " + strconv.Itoa(int(row.PID)) + " " + row.Protocol + " " + row.Local.String() + " " + row.Remote.String() + " " + row.Status() + " " + row.Interface + " " + note.Name + " " + note.Group + " " + note.Description
+		if q != "" {
+			haystack += " " + a.matchRoute(row.Remote.IP).Text()
+		}
 		if q != "" && !strings.Contains(strings.ToLower(haystack), q) {
 			continue
 		}
@@ -229,10 +237,16 @@ func (a *app) filteredConnections() []connections.Connection {
 			cmp = strings.Compare(x.Protocol, y.Protocol)
 		case "local":
 			cmp = strings.Compare(x.Local.IP, y.Local.IP)
+			if cmp == 0 {
+				cmp = compare(float64(portNumber(x.Local.Port)), float64(portNumber(y.Local.Port)))
+			}
 		case "localPort":
 			cmp = compare(float64(portNumber(x.Local.Port)), float64(portNumber(y.Local.Port)))
 		case "remote":
 			cmp = strings.Compare(x.Remote.IP, y.Remote.IP)
+			if cmp == 0 {
+				cmp = compare(float64(portNumber(x.Remote.Port)), float64(portNumber(y.Remote.Port)))
+			}
 		case "remotePort":
 			cmp = compare(float64(portNumber(x.Remote.Port)), float64(portNumber(y.Remote.Port)))
 		case "state":

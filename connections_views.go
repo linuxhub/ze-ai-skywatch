@@ -47,12 +47,13 @@ func (a *app) connectionsPage(c *ui.Context) {
 		c.SetTheme(&tableTheme)
 		table := ui.Table(c.Key("socket-table"), &n.list, []ui.TableColumn{
 			{Title: "进程", ID: "process", Width: 110, Sortable: true}, {Title: "PID", ID: "pid", Width: 56, Sortable: true},
-			{Title: "协议", ID: "protocol", Width: 48, Sortable: true}, {Title: "本地 IP", ID: "local", MinWidth: 110, Sortable: true},
-			{Title: "端口", ID: "localPort", Width: 66, Sortable: true}, {Title: "远端 IP", ID: "remote", MinWidth: 120, Sortable: true},
-			{Title: "端口", ID: "remotePort", Width: 66, Sortable: true}, {Title: "状态", ID: "state", Width: 102, Sortable: true},
+			{Title: "协议", ID: "protocol", Width: 48, Sortable: true}, {Title: "本地 IP", ID: "local", MinWidth: 120, Sortable: true},
+			{Title: "本地端口", ID: "localPort", Width: 82, Sortable: true}, {Title: "远端 IP", ID: "remote", MinWidth: 120, Sortable: true},
+			{Title: "远端端口", ID: "remotePort", Width: 82, Sortable: true}, {Title: "状态", ID: "state", Width: 102, Sortable: true},
 			{Title: "↓ 下载", ID: "download", Width: 86, Sortable: true}, {Title: "↑ 上传", ID: "upload", Width: 86, Sortable: true},
-			{Title: "网卡", ID: "interface", Width: 64, Sortable: true},
-			{Title: "IP 标注", ID: "note", MinWidth: 145, Sortable: true},
+			{Title: "网络接口", ID: "interface", Width: 78, Sortable: true},
+			{Title: "IP 标注", ID: "note", MinWidth: 105, Sortable: true},
+			{Title: "AI 分析", ID: "ai", Width: 90},
 		}, len(rows), func(row, col int) {
 			x := rows[row]
 			text := ""
@@ -85,6 +86,18 @@ func (a *app) connectionsPage(c *ui.Context) {
 					a.ipNoteBadge(c, note)
 					return
 				}
+			case 12:
+				ui.Button(c.Key("socket-ai"), "AI 分析").FontSize(11).Padding(3, 6).TextColor(downloadColor).
+					Label(fmt.Sprintf("AI 分析：%s · PID %d · %s", x.Process, x.PID, x.Remote.String())).
+					Tooltip("打开此连接的 AI 分析").OnClick(func() {
+					n.selected, n.selectedKey = row, x.Key()
+					n.detail, n.detailOpen = x, true
+					// Initialize this connection before selecting the tab: a new
+					// connection resets the analysis state, including its tab.
+					a.syncConnectionAnalysis()
+					a.connectionAI.tab = 2
+				})
+				return
 			}
 			if text == "" {
 				text = "—"
@@ -144,11 +157,13 @@ func (a *app) connectionsPage(c *ui.Context) {
 	if n.trafficErr != "" {
 		ui.Text(c, n.trafficErr).FontSize(11).TextColor(c.Theme().Warning).SingleLine().Tooltip(n.trafficErr)
 	}
-	ui.Text(c, "速率首次采样或不可用时显示 —；通配绑定无固定网卡。本地 / 远端表示连接两端；普通权限下部分连接不可见。").FontSize(10).TextColor(c.Theme().TextMuted)
+	ui.Text(c, "IP 与端口分列显示；网络接口来自采样或本地绑定。打开详情查看路由证据与 AI 分析，路由推断不代表实际报文路径。").FontSize(10).TextColor(c.Theme().TextMuted)
 }
 
 func (a *app) socketDetailView(c *ui.Context) {
 	n := &a.connections
+	a.syncConnectionAnalysis()
+	services := c.Services()
 	ui.Modal(c.Key("socket-detail"), &n.detailOpen, func() {
 		d := n.detail
 		live := false
@@ -160,20 +175,33 @@ func (a *app) socketDetailView(c *ui.Context) {
 			}
 		}
 		note := a.ipNote(d.Remote.IP)
-		ui.Column(c).Width(640).MaxHeight(610).Gap(14).Children(func() {
+		width, height := c.Size()
+		ui.Column(c).Width(min(1100, width-100)).Height(min(840, height-100)).Gap(14).Children(func() {
 			ui.Row(c).Gap(10).Children(func() {
 				ui.Text(c, "连接端点详情").FontSize(20).Bold().Grow(1)
+				ui.Textf(c, "%s · PID %d", d.Process, d.PID).FontSize(11).TextColor(c.Theme().TextMuted).SingleLine()
 				ui.Button(c, "关闭端点详情").OnClick(func() { n.detailOpen = false })
 			})
-			ui.Scroll(c).MaxHeight(430).Gap(12).Children(func() {
+			ui.Tabs(c.Key("socket-detail-tabs"), &a.connectionAI.tab, "连接信息", "路由分析", "AI 分析").Shrink(0)
+			ui.Scroll(c.Key(fmt.Sprintf("socket-tab-%d", a.connectionAI.tab))).Grow(1).MinHeight(0).Gap(12).Label("连接详情内容").Children(func() {
+				if a.connectionAI.tab == 2 {
+					a.connectionAnalysisView(c)
+					return
+				}
+				if a.connectionAI.tab == 1 {
+					a.socketRouteView(c, d)
+					return
+				}
 				a.detailRow(c, "所属进程", fmt.Sprintf("%s（PID %d）", d.Process, d.PID))
 				a.detailRow(c, "协议 / 地址族", d.Protocol+" / "+d.Family)
-				a.detailRow(c, "本地 IP / 端口", d.Local.String())
-				a.detailRow(c, "远端 IP / 端口", d.Remote.String())
+				a.detailRow(c, "本地 IP", placeholder(d.Local.IP))
+				a.detailRow(c, "本地端口", placeholder(d.Local.Port))
+				a.detailRow(c, "远端 IP", placeholder(d.Remote.IP))
+				a.detailRow(c, "远端端口", placeholder(d.Remote.Port))
 				a.detailRow(c, "连接状态", d.Status())
 				a.detailRow(c, "下载速率", rateText(d.Download, d.Ready))
 				a.detailRow(c, "上传速率", rateText(d.Upload, d.Ready))
-				a.detailRow(c, "网卡", placeholder(d.Interface))
+				a.detailRow(c, "网络接口", placeholder(d.Interface))
 				a.detailRow(c, "网络范围", d.Scope())
 				a.detailRow(c, "采集时间", sinceLabel(n.snapshot.At))
 				if !live {
@@ -195,10 +223,13 @@ func (a *app) socketDetailView(c *ui.Context) {
 				if note.Description != "" {
 					a.detailRow(c, "标注说明", note.Description)
 				}
-				ui.Text(c, "这里显示系统可见的 socket。代理 / VPN 可能改变远端地址；IP 标注是你维护的业务说明。").FontSize(11).TextColor(c.Theme().TextMuted)
+				ui.Text(c, "路由按当前目标 IP 推断；应用绑定接口或既有连接可能不同。代理进程的外层连接不能自动还原为原始应用请求。").FontSize(11).TextColor(c.Theme().TextMuted)
 			})
 			ui.Row(c).Gap(10).Children(func() {
-				ui.Button(c, "复制端点信息").OnClick(func() { a.copy(socketText(d) + "\nIP 标注：" + note.Name) })
+				ui.Button(c, "复制端点信息").OnClick(func() {
+					services.WriteClipboard(socketText(d) + "\n路由推断：" + a.matchRoute(d.Remote.IP).Text() + "\n路由采集：" + sinceLabel(a.netconfig.snapshot.Routing.At) + "\nIP 标注：" + note.Name)
+					a.notify("已复制端点与路由信息")
+				})
 				label := "标注此 IP"
 				if note.Name != "" {
 					label = "编辑此 IP 标注"

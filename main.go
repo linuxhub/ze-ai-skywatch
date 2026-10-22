@@ -26,7 +26,7 @@ const appEnglishName = "Ze AI SkyWatch"
 const appTagline = "用 AI 看懂进程与网络"
 const appAuthor = "泽泽"
 const appRepositoryURL = "https://github.com/linuxhub/ze-ai-skywatch"
-const appVersion = "0.4.5"
+const appVersion = "0.4.6"
 
 //go:embed resources/icon.png
 var appIconPNG []byte
@@ -73,11 +73,13 @@ type app struct {
 	quitting                                                         bool
 	providerUI                                                       providerState
 	analysis                                                         analysisState
+	connectionAI                                                     connectionAnalysisState
 	detailAt                                                         time.Time
 	detailInspectError                                               string
 	network                                                          networkState
 	connections                                                      connectionsState
 	ipNotes                                                          ipNotesState
+	netconfig                                                        netconfigState
 }
 
 func newApp() *app {
@@ -89,6 +91,7 @@ func newApp() *app {
 	a.workerConfig.Store(a.config)
 	a.initNetwork()
 	a.initConnections()
+	a.netconfig.routeFilter = "VPN／隧道路由"
 	return a
 }
 
@@ -140,10 +143,10 @@ func main() {
 			}
 		})
 		a.win.OnClosed(a.cancel)
-		a.win.OnHide(func() { a.network.visible = false; a.syncConnections() })
-		a.win.OnMinimize(func() { a.network.visible = false; a.syncConnections() })
-		a.win.OnShow(func() { a.network.visible = true; a.syncConnections() })
-		a.win.OnRestore(func() { a.network.visible = true; a.syncConnections() })
+		a.win.OnHide(func() { a.network.visible = false; a.syncConnections(); a.syncNetconfig() })
+		a.win.OnMinimize(func() { a.network.visible = false; a.syncConnections(); a.syncNetconfig() })
+		a.win.OnShow(func() { a.network.visible = true; a.syncConnections(); a.syncNetconfig() })
+		a.win.OnRestore(func() { a.network.visible = true; a.syncConnections(); a.syncNetconfig() })
 		a.network.visible = a.win.IsVisible() && !a.win.IsMinimized()
 		a.startWorkers()
 	})
@@ -204,6 +207,9 @@ func send(ch chan struct{}) {
 }
 func (a *app) requestRefresh() {
 	a.refreshConnections()
+	if a.page == "netconfig" && a.netconfig.refresh != nil {
+		send(a.netconfig.refresh)
+	}
 	if a.refresh != nil {
 		send(a.refresh)
 		send(a.refreshPorts)

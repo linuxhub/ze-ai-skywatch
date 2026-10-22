@@ -190,7 +190,7 @@ func TestSocketUIAnnotationAndIndependentNavigation(t *testing.T) {
 		}
 	}
 	click("网络连接")
-	if a.network.enabled || !tt.HasText("本地 IP") || !tt.HasText("远端 IP") || !tt.HasText("↓ 下载") || !tt.HasText("↑ 上传") || !tt.HasText("网卡") || !tt.HasText("2.0 KiB/s") {
+	if a.network.enabled || !tt.HasText("本地 IP") || !tt.HasText("本地端口") || !tt.HasText("远端 IP") || !tt.HasText("远端端口") || !tt.HasText("↓ 下载") || !tt.HasText("↑ 上传") || !tt.HasText("网络接口") || !tt.HasText("2.0 KiB/s") {
 		t.Fatal("page not independent")
 	}
 	click("Chrome")
@@ -286,6 +286,39 @@ func TestSocketRenderLayouts(t *testing.T) {
 				}
 			}
 			a.cancel()
+		}
+	}
+}
+
+func TestSocketAIAnalysisShortcut(t *testing.T) {
+	a := fixtureApp()
+	defer a.cancel()
+	fixtureSockets(a)
+	a.page = "connections"
+	tt := ui.NewTester(a.view, 1460, 850)
+	tt.SetLocale("zh-Hans")
+	click := func(label string) {
+		t.Helper()
+		if err := tt.Click(label); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// An action on another row must use that row, not the current selection.
+	click("Chrome")
+	for _, index := range []int{1, 0} {
+		row := a.connections.snapshot.Rows[index]
+		click(fmt.Sprintf("AI 分析：%s · PID %d · %s", row.Process, row.PID, row.Remote.String()))
+		if !a.connections.detailOpen || a.connections.detail.Key() != row.Key() || a.connectionAI.tab != 2 || a.connectionAI.evidence.Socket.Key() != row.Key() || !tt.HasText("智能连接报告") {
+			t.Fatal("shortcut did not open AI analysis for the clicked connection")
+		}
+		if a.connectionAI.loading || a.connectionAI.payload != "" {
+			t.Fatal("navigation must not start a model request")
+		}
+		tt.Frame()
+		click("关闭端点详情")
+		tt.Frame()
+		if a.connectionAI.key != "" {
+			t.Fatal("closing shortcut report did not clear analysis state")
 		}
 	}
 }
